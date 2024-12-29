@@ -40,7 +40,9 @@ from .tokenization_utils_base import (
     TruncationStrategy,
 )
 from transformers.utils import PaddingStrategy, TensorType, add_end_docstrings, logging
-
+import torch
+import spacy
+import tokenizations
 
 logger = logging.get_logger(__name__)
 
@@ -440,8 +442,11 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
             [token for token in self.all_special_tokens_extended if token not in self._added_tokens_encoder],
             special_tokens=True,
         )
+        self.pos_classes = ['ADJ', 'ADP', 'ADV', 'AUX', 'CCONJ', 'DET', 'INTJ', 'NOUN', 'NUM', 'PART', 'PRON', 'PROPN', 'PUNCT', 'SCONJ', 'SYM', 'VERB', 'X']
+        self.pos_hash = {c: i for i, c in enumerate(self.pos_classes)}
 
         self._decode_use_source_tokenizer = False
+        self.pos_tagger = spacy.load(kwargs.pop('spacy_model', 'en_core_web_sm'))
 
     @property
     def is_fast(self) -> bool:
@@ -766,7 +771,8 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         def get_input_ids(text):
             if isinstance(text, str):
                 tokens = self.tokenize(text, **kwargs)
-                return self.convert_tokens_to_ids(tokens)
+                pos_ids = self._get_pos_ids(text, tokens)
+                return self.convert_tokens_to_ids(tokens), pos_ids
             elif isinstance(text, (list, tuple)) and len(text) > 0 and isinstance(text[0], str):
                 if is_split_into_words:
                     tokens = list(
@@ -798,12 +804,12 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
                 "https://github.com/huggingface/transformers/pull/2674"
             )
 
-        first_ids = get_input_ids(text)
+        first_ids, pos_ids = get_input_ids(text)
         second_ids = get_input_ids(text_pair) if text_pair is not None else None
-        
-        temp = self.prepare_for_model(
+        return self.prepare_for_model(
             first_ids,
             pair_ids=second_ids,
+            pos_ids=pos_ids,
             add_special_tokens=add_special_tokens,
             padding=padding_strategy.value,
             truncation=truncation_strategy.value,
@@ -820,7 +826,18 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
             return_length=return_length,
             verbose=verbose,
         )
-        return temp
+    
+    def _get_pos_ids(self, text: str, tokens: List[str]) -> List[int]:
+        with self.pos_tagger.select_pipes(enable=['morphologizer', 'tok2vec', 'tagger', 'attribute_ruler']):
+            spacy_doc = self.pos_tagger(text)
+            spacy_pos = [self.pos_hash[t.pos_] for t in spacy_doc]
+            spacy_tokens = [t.text for t in spacy_doc]
+            a2b, b2a = tokenizations.get_alignments(spacy_tokens, tokens)
+            pos_ids = [0] * len(tokens)
+            for idx, id_map in enumerate(a2b):
+                for i in id_map:
+                    pos_ids[i] = spacy_pos[idx]
+            return pos_ids
 
     def _batch_encode_plus(
         self,
@@ -854,7 +871,8 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         def get_input_ids(text):
             if isinstance(text, str):
                 tokens = self.tokenize(text, **kwargs)
-                return self.convert_tokens_to_ids(tokens)
+                pos_ids = self._get_pos_ids(text, tokens)
+                return self.convert_tokens_to_ids(tokens), pos_ids
             elif isinstance(text, (list, tuple)) and len(text) > 0 and isinstance(text[0], str):
                 if is_split_into_words:
                     tokens = list(
@@ -878,7 +896,6 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
             )
 
         input_ids = []
-        print('batch')
         for ids_or_pair_ids in batch_text_or_text_pairs:
             if not isinstance(ids_or_pair_ids, (list, tuple)):
                 ids, pair_ids = ids_or_pair_ids, None
@@ -887,9 +904,9 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
             else:
                 ids, pair_ids = ids_or_pair_ids
 
-            first_ids = get_input_ids(ids)
+            first_ids, pos_ids = get_input_ids(ids)
             second_ids = get_input_ids(pair_ids) if pair_ids is not None else None
-            input_ids.append((first_ids, second_ids))
+            input_ids.append((first_ids, second_ids, pos_ids))
 
         batch_outputs = self._batch_prepare_for_model(
             input_ids,
@@ -909,7 +926,6 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
             verbose=verbose,
             split_special_tokens=split_special_tokens,
         )
-
         return BatchEncoding(batch_outputs)
 
     @add_end_docstrings(ENCODE_KWARGS_DOCSTRING, ENCODE_PLUS_ADDITIONAL_KWARGS_DOCSTRING)
@@ -942,10 +958,11 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         """
 
         batch_outputs = {}
-        for first_ids, second_ids in batch_ids_pairs:
+        for first_ids, second_ids, pos_ids in batch_ids_pairs:
             outputs = self.prepare_for_model(
                 first_ids,
                 second_ids,
+                pos_ids=pos_ids,
                 add_special_tokens=add_special_tokens,
                 padding=PaddingStrategy.DO_NOT_PAD.value,  # we pad in batch afterward
                 truncation=truncation_strategy.value,

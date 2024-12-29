@@ -31,6 +31,7 @@ from inspect import isfunction
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 import numpy as np
+import torch
 from packaging import version
 
 from . import __version__
@@ -226,7 +227,6 @@ class BatchEncoding(UserDict):
         prepend_batch_axis: bool = False,
         n_sequences: Optional[int] = None,
     ):
-        data['test'] = 'yooo'
         super().__init__(data)
 
         if isinstance(encoding, EncodingFast):
@@ -1395,7 +1395,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
 
     # first name has to correspond to main model input name
     # to make sure `tokenizer.pad(...)` works correctly
-    model_input_names: List[str] = ["input_ids", "token_type_ids", "attention_mask"]
+    model_input_names: List[str] = ["input_ids", "token_type_ids", "attention_mask", "pos_ids"]
     padding_side: str = "right"
     truncation_side: str = "right"
     slow_tokenizer_class = None
@@ -3429,6 +3429,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         self,
         ids: List[int],
         pair_ids: Optional[List[int]] = None,
+        pos_ids: List[int] = None,
         add_special_tokens: bool = True,
         padding: Union[bool, str, PaddingStrategy] = False,
         truncation: Union[bool, str, TruncationStrategy] = None,
@@ -3541,7 +3542,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
 
         # Check lengths
         self._eventual_warn_about_too_long_sequence(encoded_inputs["input_ids"], max_length, verbose)
-
+        
         # Padding
         if padding_strategy != PaddingStrategy.DO_NOT_PAD or return_attention_mask:
             encoded_inputs = self.pad(
@@ -3552,10 +3553,12 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                 padding_side=padding_side,
                 return_attention_mask=return_attention_mask,
             )
+        pos_ids = [-1] + pos_ids + [-1]
+        encoded_inputs['pos_ids'] = pos_ids
 
         if return_length:
             encoded_inputs["length"] = len(encoded_inputs["input_ids"])
-
+        
         batch_outputs = BatchEncoding(
             encoded_inputs, tensor_type=return_tensors, prepend_batch_axis=prepend_batch_axis
         )
@@ -3753,6 +3756,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                 if "special_tokens_mask" in encoded_inputs:
                     encoded_inputs["special_tokens_mask"] = encoded_inputs["special_tokens_mask"] + [1] * difference
                 encoded_inputs[self.model_input_names[0]] = required_input + [self.pad_token_id] * difference
+                encoded_inputs['pos_ids'] = encoded_inputs["pos_ids"] + [-1] * difference
             elif padding_side == "left":
                 if return_attention_mask:
                     encoded_inputs["attention_mask"] = [0] * difference + encoded_inputs["attention_mask"]
