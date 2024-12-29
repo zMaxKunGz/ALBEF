@@ -98,36 +98,26 @@ class ALBEF(nn.Module):
                                         return_dict = True, mode = 'text')            
         text_embeds = text_output.last_hidden_state
         text_feat = F.normalize(self.text_proj(text_embeds[:,0,:]),dim=-1)                 
-             
-        # get momentum features
-        with torch.no_grad():
-            self._momentum_update()
-            image_embeds_m = self.visual_encoder_m(image) 
-            image_feat_m = F.normalize(self.vision_proj_m(image_embeds_m[:,0,:]),dim=-1)  
-            image_feat_all = torch.cat([image_feat_m.t(),self.image_queue.clone().detach()],dim=1)                                         
-            text_output_m = self.text_encoder_m.bert(text.input_ids, attention_mask = text.attention_mask,                      
-                                                return_dict = True, mode = 'text')    
-            text_feat_m = F.normalize(self.text_proj_m(text_output_m.last_hidden_state[:,0,:]),dim=-1) 
-            text_feat_all = torch.cat([text_feat_m.t(),self.text_queue.clone().detach()],dim=1)
 
-            sim_i2t_m = image_feat_m @ text_feat_all / self.temp 
-            sim_t2i_m = text_feat_m @ image_feat_all / self.temp     
+        # Image text contrastive learning 
+        image_feat_all = torch.cat([image_feat.t(),self.image_queue.clone().detach()],dim=1)                                         
+        text_feat_all = torch.cat([text_feat.t(),self.text_queue.clone().detach()],dim=1)
 
-            sim_targets = torch.zeros(sim_i2t_m.size()).to(image.device)
-            sim_targets.fill_diagonal_(1)          
+        sim_i2t = image_feat @ text_feat_all / self.temp
+        sim_t2i = text_feat @ image_feat_all / self.temp
 
-            sim_i2t_targets = alpha * F.softmax(sim_i2t_m, dim=1) + (1 - alpha) * sim_targets
-            sim_t2i_targets = alpha * F.softmax(sim_t2i_m, dim=1) + (1 - alpha) * sim_targets        
+        sim_targets = torch.zeros(sim_i2t.size()).to(image.device)
+        sim_targets.fill_diagonal_(1)
 
         sim_i2t = image_feat @ text_feat_all / self.temp 
         sim_t2i = text_feat @ image_feat_all / self.temp 
                              
-        loss_i2t = -torch.sum(F.log_softmax(sim_i2t, dim=1)*sim_i2t_targets,dim=1).mean()
-        loss_t2i = -torch.sum(F.log_softmax(sim_t2i, dim=1)*sim_t2i_targets,dim=1).mean() 
+        loss_i2t = -torch.sum(F.log_softmax(sim_i2t, dim=1)*sim_targets,dim=1).mean()
+        loss_t2i = -torch.sum(F.log_softmax(sim_t2i, dim=1)*sim_targets,dim=1).mean()
 
         loss_ita = (loss_i2t+loss_t2i)/2
 
-        self._dequeue_and_enqueue(image_feat_m, text_feat_m)
+        # self._dequeue_and_enqueue(image_feat, text_feat)
 
         ###=================================###
         # forward the positve image-text pair
@@ -192,21 +182,12 @@ class ALBEF(nn.Module):
         input_ids, labels = self.mask(input_ids, self.text_encoder.config.vocab_size, image.device, targets=labels,
                                       probability_matrix = probability_matrix) 
         
-        with torch.no_grad():
-            logits_m = self.text_encoder_m(input_ids, 
-                                           attention_mask = text.attention_mask,
-                                           encoder_hidden_states = image_embeds_m,
-                                           encoder_attention_mask = image_atts,      
-                                           return_dict = True,
-                                           return_logits = True,   
-                                          )    
         mlm_output = self.text_encoder(input_ids, 
                                        attention_mask = text.attention_mask,
                                        encoder_hidden_states = image_embeds,
                                        encoder_attention_mask = image_atts,      
                                        return_dict = True,
-                                       labels = labels,   
-                                       soft_labels = F.softmax(logits_m,dim=-1),
+                                       labels = labels,
                                        alpha = alpha
                                       )                           
         loss_mlm = mlm_output.loss        
