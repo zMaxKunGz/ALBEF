@@ -837,8 +837,8 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
             for idx, id_map in enumerate(a2b):
                 for i in id_map:
                     pos_ids[i] = spacy_pos[idx]
-            return [-1] + pos_ids
-
+            return [-1] + pos_ids + [-1]
+            
     def _batch_encode_plus(
         self,
         batch_text_or_text_pairs: Union[

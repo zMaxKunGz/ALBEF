@@ -716,7 +716,6 @@ class BatchEncoding(UserDict):
         # Convert to TensorType
         if not isinstance(tensor_type, TensorType):
             tensor_type = TensorType(tensor_type)
-
         # Get a function reference for the correct framework
         if tensor_type == TensorType.TENSORFLOW:
             if not is_tf_available():
@@ -3364,7 +3363,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         if padding_strategy == PaddingStrategy.LONGEST:
             max_length = max(len(inputs) for inputs in required_input)
             padding_strategy = PaddingStrategy.MAX_LENGTH
-
         batch_outputs = {}
         for i in range(batch_size):
             inputs = {k: v[i] for k, v in encoded_inputs.items()}
@@ -3757,7 +3755,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                 if "special_tokens_mask" in encoded_inputs:
                     encoded_inputs["special_tokens_mask"] = encoded_inputs["special_tokens_mask"] + [1] * difference
                 encoded_inputs[self.model_input_names[0]] = required_input + [self.pad_token_id] * difference
-                encoded_inputs['pos_ids'] = encoded_inputs["pos_ids"] + [-1] * (len(encoded_inputs[self.model_input_names[0]]) - len(encoded_inputs["pos_ids"]))
+                encoded_inputs['pos_ids'] = encoded_inputs["pos_ids"] + [-1] * (max_length - len(encoded_inputs["pos_ids"]))
             elif padding_side == "left":
                 if return_attention_mask:
                     encoded_inputs["attention_mask"] = [0] * difference + encoded_inputs["attention_mask"]
