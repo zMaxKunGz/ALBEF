@@ -3553,8 +3553,9 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                 padding_side=padding_side,
                 return_attention_mask=return_attention_mask,
             )
-        pos_ids = [-1] + pos_ids + [-1]
-        encoded_inputs['pos_ids'] = pos_ids
+
+        if pair_ids is None:
+            encoded_inputs['pos_ids'] = pos_ids
 
         if return_length:
             encoded_inputs["length"] = len(encoded_inputs["input_ids"])
