@@ -750,6 +750,7 @@ class BatchEncoding(UserDict):
             if not is_mlx_available():
                 raise ImportError("Unable to convert output to MLX tensors format, MLX is not installed.")
             import mlx.core as mx
+            
 
             as_tensor = mx.array
 
@@ -3508,9 +3509,10 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         # Truncation: Handle max sequence length
         overflowing_tokens = []
         if truncation_strategy != TruncationStrategy.DO_NOT_TRUNCATE and max_length and total_len > max_length:
-            ids, pair_ids, overflowing_tokens = self.truncate_sequences(
+            ids, pair_ids, pos_ids, overflowing_tokens = self.truncate_sequences(
                 ids,
                 pair_ids=pair_ids,
+                pos_ids=pos_ids,
                 num_tokens_to_remove=total_len - max_length,
                 truncation_strategy=truncation_strategy,
                 stride=stride,
@@ -3523,6 +3525,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         # Add special tokens
         if add_special_tokens:
             sequence = self.build_inputs_with_special_tokens(ids, pair_ids)
+            pos_ids = [-1] + pos_ids + [-1]
             token_type_ids = self.create_token_type_ids_from_sequences(ids, pair_ids)
         else:
             sequence = ids + pair_ids if pair else ids
@@ -3530,6 +3533,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
 
         # Build output dictionary
         encoded_inputs["input_ids"] = sequence
+        encoded_inputs['pos_ids'] = pos_ids
         if return_token_type_ids:
             encoded_inputs["token_type_ids"] = token_type_ids
         if return_special_tokens_mask:
@@ -3540,7 +3544,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
 
         # Check lengths
         self._eventual_warn_about_too_long_sequence(encoded_inputs["input_ids"], max_length, verbose)
-        
         # Padding
         if padding_strategy != PaddingStrategy.DO_NOT_PAD or return_attention_mask:
             encoded_inputs = self.pad(
@@ -3551,9 +3554,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                 padding_side=padding_side,
                 return_attention_mask=return_attention_mask,
             )
-
-        if pair_ids is None:
-            encoded_inputs['pos_ids'] = pos_ids
 
         if return_length:
             encoded_inputs["length"] = len(encoded_inputs["input_ids"])
@@ -3568,6 +3568,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         self,
         ids: List[int],
         pair_ids: Optional[List[int]] = None,
+        pos_ids: List[int] = None,
         num_tokens_to_remove: int = 0,
         truncation_strategy: Union[str, TruncationStrategy] = "longest_first",
         stride: int = 0,
@@ -3623,9 +3624,11 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                 if self.truncation_side == "left":
                     overflowing_tokens = ids[:window_len]
                     ids = ids[num_tokens_to_remove:]
+                    pos_ids = pos_ids[num_tokens_to_remove:]
                 elif self.truncation_side == "right":
                     overflowing_tokens = ids[-window_len:]
                     ids = ids[:-num_tokens_to_remove]
+                    pos_ids = pos_ids[:-num_tokens_to_remove]
                 else:
                     raise ValueError(f"invalid truncation strategy: {self.truncation_side}, use 'left' or 'right'.")
 
@@ -3686,7 +3689,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                     "for instance 'longest_first' or 'only_first'."
                 )
 
-        return (ids, pair_ids, overflowing_tokens)
+        return (ids, pair_ids, pos_ids, overflowing_tokens)
 
     def _pad(
         self,
@@ -3755,7 +3758,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                 if "special_tokens_mask" in encoded_inputs:
                     encoded_inputs["special_tokens_mask"] = encoded_inputs["special_tokens_mask"] + [1] * difference
                 encoded_inputs[self.model_input_names[0]] = required_input + [self.pad_token_id] * difference
-                encoded_inputs['pos_ids'] = encoded_inputs["pos_ids"] + [-1] * (max_length - len(encoded_inputs["pos_ids"]))
+                encoded_inputs['pos_ids'] = encoded_inputs["pos_ids"] + [-1] * difference
             elif padding_side == "left":
                 if return_attention_mask:
                     encoded_inputs["attention_mask"] = [0] * difference + encoded_inputs["attention_mask"]

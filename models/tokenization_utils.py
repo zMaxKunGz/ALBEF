@@ -442,7 +442,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
             [token for token in self.all_special_tokens_extended if token not in self._added_tokens_encoder],
             special_tokens=True,
         )
-        self.pos_classes = ['ADJ', 'ADP', 'ADV', 'AUX', 'CCONJ', 'DET', 'INTJ', 'NOUN', 'NUM', 'PART', 'PRON', 'PROPN', 'PUNCT', 'SCONJ', 'SYM', 'VERB', 'X']
+        self.pos_classes = ['ADJ', 'ADP', 'ADV', 'AUX', 'CCONJ', 'DET', 'INTJ', 'NOUN', 'NUM', 'PART', 'PRON', 'PROPN', 'PUNCT', 'SCONJ', 'SYM', 'VERB', 'X', 'SPACE']
         self.pos_hash = {c: i for i, c in enumerate(self.pos_classes)}
 
         self._decode_use_source_tokenizer = False
@@ -829,16 +829,18 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
     
     def _get_pos_ids(self, text: str, tokens: List[str]) -> List[int]:
         with self.pos_tagger.select_pipes(enable=['morphologizer', 'tok2vec', 'tagger', 'attribute_ruler']):
-            spacy_doc = self.pos_tagger(text)
-            spacy_pos = [self.pos_hash[t.pos_] for t in spacy_doc]
-            spacy_tokens = [t.text for t in spacy_doc]
-            a2b, b2a = tokenizations.get_alignments(spacy_tokens, tokens)
-            pos_ids = [0] * len(tokens)
-            for idx, id_map in enumerate(a2b):
-                for i in id_map:
-                    pos_ids[i] = spacy_pos[idx]
-            return [-1] + pos_ids + [-1]
-            
+            try:
+                spacy_doc = self.pos_tagger(text)
+                spacy_pos = [self.pos_hash[t.pos_] for t in spacy_doc]
+                spacy_tokens = [t.text for t in spacy_doc]
+                a2b, b2a = tokenizations.get_alignments(spacy_tokens, tokens)
+                pos_ids = [0] * len(tokens)
+                for idx, id_map in enumerate(a2b):
+                    for i in id_map:
+                        pos_ids[i] = spacy_pos[idx]
+                return pos_ids
+            except:
+                raise ValueError(text)
     def _batch_encode_plus(
         self,
         batch_text_or_text_pairs: Union[
