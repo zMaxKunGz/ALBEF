@@ -30,7 +30,8 @@ import utils
 from dataset import create_dataset, create_sampler, create_loader
 from scheduler import create_scheduler
 from optim import create_optimizer
-
+import wandb
+from datetime import datetime
 
 def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device, scheduler, config):
     # train
@@ -66,9 +67,12 @@ def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device,
         loss_mlm, loss_ita, loss_itm = model(image, text_input, alpha = alpha)  
             
         loss = loss_mlm + loss_ita + loss_itm    
-          
+        
         loss.backward()
-        optimizer.step()    
+        optimizer.step()
+
+        if utils.is_main_process():
+            wandb.log({'loss_mlm': loss_mlm.item(), 'loss_ita': loss_ita.item(), 'loss_itm': loss_itm.item()})
         
         metric_logger.update(loss_mlm=loss_mlm.item())
         metric_logger.update(loss_ita=loss_ita.item())
@@ -83,10 +87,13 @@ def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device,
     print("Averaged stats:", metric_logger.global_avg())     
     return {k: "{:.3f}".format(meter.global_avg) for k, meter in metric_logger.meters.items()}    
     
-    
 def main(args, config):
     utils.init_distributed_mode(args)    
-    
+    if utils.get_rank() == 0:
+        utils.setup_wandb(rank=utils.get_rank(), 
+                          run_name='pre-train' + datetime.now().strftime("%d-%m-%Y:%H-%M") + args.pos,
+                          config=config)
+        
     device = torch.device(args.device)
 
     # fix the seed for reproducibility
@@ -167,7 +174,7 @@ def main(args, config):
                 'config': config,
                 'epoch': epoch,
             }
-            torch.save(save_obj, os.path.join(args.output_dir, 'checkpoint_%02d.pth'%epoch))  
+            torch.save(save_obj, os.path.join(args.output_dir, 'checkpoint_%02d.pth'%epoch))
             
             with open(os.path.join(args.output_dir, "log.txt"),"a") as f:
                 f.write(json.dumps(log_stats) + "\n")
@@ -192,6 +199,7 @@ if __name__ == '__main__':
     parser.add_argument('--world_size', default=1, type=int, help='number of distributed processes')    
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
     parser.add_argument('--distributed', default=True, type=bool)
+    parser.add_argument('--pos', default="all")
     args = parser.parse_args()
 
     config = yaml.load(open(args.config, 'r'), Loader=yaml.Loader)
@@ -200,4 +208,4 @@ if __name__ == '__main__':
 
     yaml.dump(config, open(os.path.join(args.output_dir, 'config.yaml'), 'w'))    
     
-    main(args, config)
+    # main(args, config)

@@ -4,7 +4,7 @@ import os
 import time
 from collections import defaultdict, deque
 import datetime
-
+import wandb
 import torch
 import torch.distributed as dist
 
@@ -256,3 +256,18 @@ def init_distributed_mode(args):
                                          world_size=args.world_size, rank=args.rank)
     torch.distributed.barrier()
     setup_for_distributed(args.rank == 0)
+
+def setup_wandb(rank:int, 
+                project_name:str="ALBEF-POS",
+                run_name:str=None,
+                config=None):
+    """
+    Initialize WandB for logging.
+    Each process logs separately but syncs to a single project.
+    """
+    # Initialize WandB only for rank 0 (primary logger)
+    wandb.init(
+        project=project_name,
+        name=run_name if run_name else f"Run-{os.getpid()}",
+        config=config,
+    )

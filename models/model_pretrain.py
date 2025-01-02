@@ -60,20 +60,20 @@ class ALBEF(nn.Module):
         self.itm_head = nn.Linear(text_width, 2)     
 
         # create momentum models
-        self.visual_encoder_m = VisionTransformer(
-            img_size=config['image_res'], patch_size=16, embed_dim=768, depth=12, num_heads=12, 
-            mlp_ratio=4, qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6)) 
-        self.vision_proj_m = nn.Linear(vision_width, embed_dim)
-        self.text_encoder_m = BertForMaskedLM.from_pretrained(text_encoder, config=bert_config)       
-        self.text_proj_m = nn.Linear(text_width, embed_dim)    
+        # self.visual_encoder_m = VisionTransformer(
+        #     img_size=config['image_res'], patch_size=16, embed_dim=768, depth=12, num_heads=12, 
+        #     mlp_ratio=4, qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6)) 
+        # self.vision_proj_m = nn.Linear(vision_width, embed_dim)
+        # self.text_encoder_m = BertForMaskedLM.from_pretrained(text_encoder, config=bert_config)       
+        # self.text_proj_m = nn.Linear(text_width, embed_dim)    
         
-        self.model_pairs = [[self.visual_encoder,self.visual_encoder_m],
-                            [self.vision_proj,self.vision_proj_m],
-                            [self.text_encoder,self.text_encoder_m],
-                            [self.text_proj,self.text_proj_m],
-                           ]
+        # self.model_pairs = [[self.visual_encoder,self.visual_encoder_m],
+        #                     [self.vision_proj,self.vision_proj_m],
+        #                     [self.text_encoder,self.text_encoder_m],
+        #                     [self.text_proj,self.text_proj_m],
+        #                    ]
         
-        self.copy_params()
+        # self.copy_params()
 
         # create the queue
         self.register_buffer("image_queue", torch.randn(embed_dim, self.queue_size))
@@ -85,7 +85,7 @@ class ALBEF(nn.Module):
 
 
 
-    def forward(self, image, text, alpha=0):
+    def forward(self, image, text, alpha=0, masking_pos='all'):
         with torch.no_grad():
             self.temp.clamp_(0.001,0.5)
         
@@ -180,7 +180,7 @@ class ALBEF(nn.Module):
 
         probability_matrix = torch.full(labels.shape, self.mlm_probability)                    
         input_ids, labels = self.mask(input_ids, self.text_encoder.config.vocab_size, image.device, targets=labels,
-                                      probability_matrix = probability_matrix) 
+                                      probability_matrix = probability_matrix, masking_pos=masking_pos) 
         
         mlm_output = self.text_encoder(input_ids, 
                                        attention_mask = text.attention_mask,
@@ -231,7 +231,7 @@ class ALBEF(nn.Module):
         self.queue_ptr[0] = ptr 
         
         
-    def mask(self, input_ids, vocab_size, device, targets=None, masked_indices=None, probability_matrix=None):
+    def mask(self, input_ids, vocab_size, device, targets=None, masked_indices=None, probability_matrix=None, masking_pos='all'):
         if masked_indices is None:                                       
             masked_indices = torch.bernoulli(probability_matrix).bool()
                                                
