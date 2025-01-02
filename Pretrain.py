@@ -33,7 +33,7 @@ from optim import create_optimizer
 import wandb
 from datetime import datetime
 
-def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device, scheduler, config):
+def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device, scheduler, config, masking_pos):
     # train
     model.train()  
     
@@ -64,7 +64,7 @@ def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device,
         else:
             alpha = config['alpha']*min(1,i/len(data_loader)) 
         
-        loss_mlm, loss_ita, loss_itm = model(image, text_input, alpha = alpha)  
+        loss_mlm, loss_ita, loss_itm = model(image, text_input, alpha = alpha, masking_pos=masking_pos)  
             
         loss = loss_mlm + loss_ita + loss_itm    
         
@@ -162,7 +162,7 @@ def main(args, config):
         if epoch>0:
             lr_scheduler.step(epoch+warmup_steps)  
             
-        train_stats = train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device, lr_scheduler, config) 
+        train_stats = train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device, lr_scheduler, config, masking_pos=args.pos) 
         if utils.is_main_process():  
             log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                          'epoch': epoch,
