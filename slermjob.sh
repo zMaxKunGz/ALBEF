@@ -13,4 +13,4 @@
 # module load cuda/11.8
 
 # Run your GPU job commands here
-python my_gpu_script.py
+./pretrain_script.sh
