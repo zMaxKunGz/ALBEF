@@ -31,7 +31,8 @@ from dataset import create_dataset, create_sampler, create_loader
 from scheduler import create_scheduler
 from optim import create_optimizer
 import wandb
-from datetime import datetime
+from datetime import datetime, timedelta
+import pdb
 
 def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device, scheduler, config, masking_pos):
     # train
@@ -105,7 +106,7 @@ def main(args, config):
     
     start_epoch = 0
     max_epoch = config['schedular']['epochs']
-    warmup_steps = config['schedular']['warmup_epochs']    
+    warmup_steps = config['schedular']['warmup_epochs']
 
     #### Dataset #### 
     print("Creating dataset")
@@ -113,7 +114,7 @@ def main(args, config):
     
     if args.distributed:
         num_tasks = utils.get_world_size()
-        global_rank = utils.get_rank()            
+        global_rank = utils.get_rank()
         samplers = create_sampler(datasets, [True], num_tasks, global_rank)         
     else:
         samplers = [None]
@@ -143,46 +144,58 @@ def main(args, config):
             start_epoch = checkpoint['epoch']+1         
         else:
             pos_embed_reshaped = interpolate_pos_embed(state_dict['visual_encoder.pos_embed'],model.visual_encoder)   
-            m_pos_embed_reshaped = interpolate_pos_embed(state_dict['visual_encoder_m.pos_embed'],model.visual_encoder_m)  
+            # m_pos_embed_reshaped = interpolate_pos_embed(state_dict['visual_encoder_m.pos_embed'],model.visual_encoder_m)  
             state_dict['visual_encoder.pos_embed'] = pos_embed_reshaped       
-            state_dict['visual_encoder_m.pos_embed'] = m_pos_embed_reshaped               
+            # state_dict['visual_encoder_m.pos_embed'] = m_pos_embed_reshaped               
         model.load_state_dict(state_dict)    
         print('load checkpoint from %s'%args.checkpoint)
     
     model_without_ddp = model
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        model_without_ddp = model.module    
-    
+        model_without_ddp = model.module
+
     print("Start training")
     start_time = time.time()
-
+    
     for epoch in range(start_epoch, max_epoch):
         
         if epoch>0:
             lr_scheduler.step(epoch+warmup_steps)  
             
-        train_stats = train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device, lr_scheduler, config, masking_pos=args.pos) 
-        if utils.is_main_process():  
+        train_stats = train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device, lr_scheduler, config, masking_pos=args.pos)
+        if utils.is_main_process():
+            best_loss = 9999999
+            total_loss = float(train_stats['loss_mlm']) + float(train_stats['loss_ita']) + float(train_stats['loss_itm'])
             log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                          'epoch': epoch,
-                        }                     
-            save_obj = {
-                'model': model_without_ddp.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'lr_scheduler': lr_scheduler.state_dict(),
-                'config': config,
-                'epoch': epoch,
-            }
-            torch.save(save_obj, os.path.join(args.output_dir, 'checkpoint_%02d.pth'%epoch))
-            
+                        }
+            if total_loss < best_loss:
+                save_obj = {
+                    'model': model_without_ddp.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'lr_scheduler': lr_scheduler.state_dict(),
+                    'config': config,
+                    'epoch': epoch,
+                }
+                torch.save(save_obj, os.path.join(args.output_dir, 'checkpoint_best.pth'))
+            if epoch == max_epoch-1:
+                save_obj = {
+                    'model': model_without_ddp.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'lr_scheduler': lr_scheduler.state_dict(),
+                    'config': config,
+                    'epoch': epoch,
+                }
+                torch.save(save_obj, os.path.join(args.output_dir, 'checkpoint_%02d.pth'%epoch))
+                
             with open(os.path.join(args.output_dir, "log.txt"),"a") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
         dist.barrier()  
                 
     total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    total_time_str = str(timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str)) 
     
             
@@ -203,9 +216,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     config = yaml.load(open(args.config, 'r'), Loader=yaml.Loader)
-
+    args.output_dir = args.output_dir + '/' + datetime.now().strftime("%d-%m-%Y:%H-%M") + args.pos
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
     yaml.dump(config, open(os.path.join(args.output_dir, 'config.yaml'), 'w'))    
     
-    # main(args, config)
+    main(args, config)

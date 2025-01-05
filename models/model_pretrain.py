@@ -59,6 +59,9 @@ class ALBEF(nn.Module):
         self.momentum = config['momentum']  
         self.itm_head = nn.Linear(text_width, 2)     
 
+        self.pos_classes = ['ADJ', 'ADP', 'ADV', 'AUX', 'CCONJ', 'DET', 'INTJ', 'NOUN', 'NUM', 'PART', 'PRON', 'PROPN', 'PUNCT', 'SCONJ', 'SYM', 'VERB', 'X', 'SPACE']
+        self.pos_hash = {c: i for i, c in enumerate(self.pos_classes)}
+
         # create momentum models
         # self.visual_encoder_m = VisionTransformer(
         #     img_size=config['image_res'], patch_size=16, embed_dim=768, depth=12, num_heads=12, 
@@ -82,8 +85,6 @@ class ALBEF(nn.Module):
                              
         self.image_queue = nn.functional.normalize(self.image_queue, dim=0)
         self.text_queue = nn.functional.normalize(self.text_queue, dim=0)
-
-
 
     def forward(self, image, text, alpha=0, masking_pos='all'):
         with torch.no_grad():
@@ -176,10 +177,11 @@ class ALBEF(nn.Module):
         
         ##================= MLM ========================##                
         input_ids = text.input_ids.clone()
+        pos_ids = text.pos_ids.clone()
         labels = input_ids.clone()
 
         probability_matrix = torch.full(labels.shape, self.mlm_probability)                    
-        input_ids, labels = self.mask(input_ids, self.text_encoder.config.vocab_size, image.device, targets=labels,
+        input_ids, labels = self.mask(input_ids, pos_ids, self.text_encoder.config.vocab_size, image.device, targets=labels,
                                       probability_matrix = probability_matrix, masking_pos=masking_pos) 
         
         mlm_output = self.text_encoder(input_ids, 
@@ -231,31 +233,45 @@ class ALBEF(nn.Module):
         self.queue_ptr[0] = ptr 
         
         
-    def mask(self, input_ids, vocab_size, device, targets=None, masked_indices=None, probability_matrix=None, masking_pos='all'):
-        if masked_indices is None:                                       
-            masked_indices = torch.bernoulli(probability_matrix).bool()
-                                               
-        masked_indices[input_ids == self.tokenizer.pad_token_id] = False
-        masked_indices[input_ids == self.tokenizer.cls_token_id] = False
-        
-        if targets is not None:
-            targets[~masked_indices] = -100 # We only compute loss on masked tokens            
+    def mask(self, input_ids, pos_ids, vocab_size, device, targets=None, masked_indices=None, probability_matrix=None, masking_pos='all'):
+        if masking_pos == 'all':
+            if masked_indices is None:                                       
+                masked_indices = torch.bernoulli(probability_matrix).bool()
+                                                   
+            masked_indices[input_ids == self.tokenizer.pad_token_id] = False
+            masked_indices[input_ids == self.tokenizer.cls_token_id] = False
+            
+            if targets is not None:
+                targets[~masked_indices] = -100 # We only compute loss on masked tokens            
+    
+            # 80% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
+            indices_replaced = torch.bernoulli(torch.full(input_ids.shape, 0.8)).bool() & masked_indices
+            input_ids[indices_replaced] = self.tokenizer.mask_token_id
+    
+            # 10% of the time, we replace masked input tokens with random word
+            indices_random = torch.bernoulli(torch.full(input_ids.shape, 0.5)).bool() & masked_indices & ~indices_replaced
+            random_words = torch.randint(vocab_size, input_ids.shape, dtype=torch.long).to(device)
+            input_ids[indices_random] = random_words[indices_random]                     
+            # The rest of the time (10% of the time) we keep the masked input tokens unchanged   
 
-        # 80% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
-        indices_replaced = torch.bernoulli(torch.full(input_ids.shape, 0.8)).bool() & masked_indices
-        input_ids[indices_replaced] = self.tokenizer.mask_token_id
-
-        # 10% of the time, we replace masked input tokens with random word
-        indices_random = torch.bernoulli(torch.full(input_ids.shape, 0.5)).bool() & masked_indices & ~indices_replaced
-        random_words = torch.randint(vocab_size, input_ids.shape, dtype=torch.long).to(device)
-        input_ids[indices_random] = random_words[indices_random]                     
-        # The rest of the time (10% of the time) we keep the masked input tokens unchanged   
-        
-        if targets is not None:
-            return input_ids, targets
+            masking_pos_id = self.pos_hash['NOUN']
+            indices = torch.zeros(input_ids.shape)
+            indices[pos_ids==masking_pos_id] = 0.7
+            indices_random = torch.bernoulli(indices).bool()
+            print(indices_random)
+            
+            if targets is not None:
+                return input_ids, targets
+            else:
+                return input_ids
+        elif masking_pos in self.pos_classes:
+            masking_pos_id = self.pos_hash[masking_pos]
+            indices = torch.zeros(inputs_ids.shape)
+            indices[pos_ids==masking_pos_id] = 1
+            print(indices)
+            
         else:
-            return input_ids
-        
+            raise Exception("POS Masking should be in only ['ADJ', 'ADP', 'ADV', 'AUX', 'CCONJ', 'DET', 'INTJ', 'NOUN', 'NUM', 'PART', 'PRON', 'PROPN', 'PUNCT', 'SCONJ', 'SYM', 'VERB', 'X', 'SPACE', all]")
 
 @torch.no_grad()
 def concat_all_gather(tensor):
