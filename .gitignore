@@ -140,3 +140,5 @@ ui-tests/.pnp.*
 notebook/templates/*.html
 
 output/
+wandb/
+pretrain-weight/
