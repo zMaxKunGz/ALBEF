@@ -253,22 +253,24 @@ class ALBEF(nn.Module):
             random_words = torch.randint(vocab_size, input_ids.shape, dtype=torch.long).to(device)
             input_ids[indices_random] = random_words[indices_random]                     
             # The rest of the time (10% of the time) we keep the masked input tokens unchanged   
-
-            # masking_pos_id = self.pos_hash['NOUN']
-            # indices = torch.zeros(input_ids.shape)
-            # indices[pos_ids==masking_pos_id] = 0.7
-            # indices_random = torch.bernoulli(indices).bool()
-            # print(indices_random)
-            
             if targets is not None:
                 return input_ids, targets
             else:
                 return input_ids
-        # elif masking_pos in self.pos_classes:
-        #     masking_pos_id = self.pos_hash[masking_pos]
-        #     indices = torch.zeros(inputs_ids.shape)
-        #     indices[pos_ids==masking_pos_id] = 1
-        #     print(indices)
+            
+        elif masking_pos in self.pos_classes:
+            masking_pos_id = self.pos_hash[masking_pos]
+            masked_indices = torch.zeros(input_ids.shape)
+            masked_indices[pos_ids==masking_pos_id] = 0.7
+            masked_indices = torch.bernoulli(masked_indices).bool()
+
+            input_ids[masked_indices] = self.tokenizer.mask_token_id
+
+            if targets is not None:
+                targets[~masked_indices] = -100
+                return input_ids, targets
+            else:
+                return input_ids
             
         else:
             raise Exception("POS Masking should be in only ['ADJ', 'ADP', 'ADV', 'AUX', 'CCONJ', 'DET', 'INTJ', 'NOUN', 'NUM', 'PART', 'PRON', 'PROPN', 'PUNCT', 'SCONJ', 'SYM', 'VERB', 'X', 'SPACE', all]")
