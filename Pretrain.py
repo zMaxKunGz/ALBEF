@@ -91,6 +91,9 @@ def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device,
 def main(args, config):
     utils.init_distributed_mode(args)    
     if utils.get_rank() == 0:
+        if args.checkpoint:
+            config['checkpoint'] = args.checkpoint
+            config['resume'] = args.resume
         utils.setup_wandb(rank=utils.get_rank(), 
                           run_name='pre-train' + datetime.now().strftime("%d-%m-%Y:%H-%M") + args.pos,
                           config=config)
@@ -147,7 +150,7 @@ def main(args, config):
             # m_pos_embed_reshaped = interpolate_pos_embed(state_dict['visual_encoder_m.pos_embed'],model.visual_encoder_m)  
             state_dict['visual_encoder.pos_embed'] = pos_embed_reshaped       
             # state_dict['visual_encoder_m.pos_embed'] = m_pos_embed_reshaped               
-        model.load_state_dict(state_dict)    
+        model.load_state_dict(state_dict, strict=False)    
         print('load checkpoint from %s'%args.checkpoint)
     
     model_without_ddp = model
