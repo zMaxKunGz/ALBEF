@@ -7,7 +7,7 @@
 
 import argparse
 import os
-import ruamel.yaml as yaml
+from ruamel.yaml import YAML
 import numpy as np
 import random
 import time
@@ -215,7 +215,9 @@ if __name__ == '__main__':
     parser.add_argument('--pos', default="all")
     args = parser.parse_args()
 
-    config = yaml.load(open(args.config, 'r'), Loader=yaml.Loader)
+    yaml = YAML(typ='rt')
+    with open(args.config, 'r') as file:
+        config = yaml.load(file)
     args.output_dir = args.output_dir + '/' + datetime.now().strftime("%d-%m-%Y:%H-%M") + args.pos
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
