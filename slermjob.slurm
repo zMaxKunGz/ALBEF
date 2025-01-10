@@ -10,7 +10,9 @@
 #SBATCH --time=24:00:00               # Maximum runtime (HH:MM:SS)
 
 # Load any necessary modules
-# module load cuda/11.8
+source ../pytorch/bin/activate
 
 # Run your GPU job commands here
 ./pretrain_script.sh
+
+deactivate
