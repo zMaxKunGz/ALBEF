@@ -33,21 +33,6 @@ class ALBEF(nn.Module):
         self.queue_size = config['queue_size']
         self.momentum = config['momentum']  
         self.itm_head = nn.Linear(text_width, 2) 
-        
-        # create momentum models
-        self.visual_encoder_m = VisionTransformer(
-            img_size=config['image_res'], patch_size=16, embed_dim=768, depth=12, num_heads=12, 
-            mlp_ratio=4, qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6)) 
-        self.vision_proj_m = nn.Linear(vision_width, embed_dim)
-        self.text_encoder_m = BertModel.from_pretrained(text_encoder, config=bert_config, add_pooling_layer=False)           
-        self.text_proj_m = nn.Linear(text_width, embed_dim)   
-
-        self.model_pairs = [[self.visual_encoder,self.visual_encoder_m],
-                            [self.vision_proj,self.vision_proj_m],
-                            [self.text_encoder,self.text_encoder_m],
-                            [self.text_proj,self.text_proj_m],
-                           ]
-        self.copy_params()
 
         # create the queue
         self.register_buffer("image_queue", torch.randn(embed_dim, self.queue_size))
@@ -75,36 +60,18 @@ class ALBEF(nn.Module):
         pos_idx = torch.eq(idx, idx_all).float()       
         sim_targets = pos_idx / pos_idx.sum(1,keepdim=True)     
 
-        with torch.no_grad():
-            self._momentum_update()
-            image_embeds_m = self.visual_encoder_m(image) 
-            image_feat_m = F.normalize(self.vision_proj_m(image_embeds_m[:,0,:]),dim=-1)  
-            image_feat_all = torch.cat([image_feat_m.t(),self.image_queue.clone().detach()],dim=1)                                         
-            text_output_m = self.text_encoder_m(text.input_ids, attention_mask = text.attention_mask,             
-                                                return_dict = True, mode = 'text')    
-            text_feat_m = F.normalize(self.text_proj_m(text_output_m.last_hidden_state[:,0,:]),dim=-1) 
-            text_feat_all = torch.cat([text_feat_m.t(),self.text_queue.clone().detach()],dim=1)
-
-            if self.distill:               
-                sim_i2t_m = image_feat_m @ text_feat_all / self.temp 
-                sim_t2i_m = text_feat_m @ image_feat_all / self.temp   
-
-                sim_i2t_targets = alpha * F.softmax(sim_i2t_m, dim=1) + (1 - alpha) * sim_targets
-                sim_t2i_targets = alpha * F.softmax(sim_t2i_m, dim=1) + (1 - alpha) * sim_targets 
+        image_feat_all = torch.cat([image_feat.t(),self.image_queue.clone().detach()],dim=1)                                         
+        text_feat_all = torch.cat([text_feat.t(),self.text_queue.clone().detach()],dim=1)
 
         sim_i2t = image_feat @ text_feat_all / self.temp 
         sim_t2i = text_feat @ image_feat_all / self.temp           
 
-        if self.distill:
-            loss_i2t = -torch.sum(F.log_softmax(sim_i2t, dim=1)*sim_i2t_targets,dim=1).mean()
-            loss_t2i = -torch.sum(F.log_softmax(sim_t2i, dim=1)*sim_t2i_targets,dim=1).mean() 
-        else:
-            loss_i2t = -torch.sum(F.log_softmax(sim_i2t, dim=1)*sim_targets,dim=1).mean()
-            loss_t2i = -torch.sum(F.log_softmax(sim_t2i, dim=1)*sim_targets,dim=1).mean()   
+        loss_i2t = -torch.sum(F.log_softmax(sim_i2t, dim=1)*sim_targets,dim=1).mean()
+        loss_t2i = -torch.sum(F.log_softmax(sim_t2i, dim=1)*sim_targets,dim=1).mean()   
 
         loss_ita = (loss_i2t+loss_t2i)/2
 
-        self._dequeue_and_enqueue(image_feat_m, text_feat_m, idx)
+        self._dequeue_and_enqueue(image_feat, text_feat, idx)
 
         ###=================================###
         # forward the positve image-text pair
