@@ -62,22 +62,6 @@ class ALBEF(nn.Module):
         self.pos_classes = ['ADJ', 'ADP', 'ADV', 'AUX', 'CCONJ', 'DET', 'INTJ', 'NOUN', 'NUM', 'PART', 'PRON', 'PROPN', 'PUNCT', 'SCONJ', 'SYM', 'VERB', 'X', 'SPACE']
         self.pos_hash = {c: i for i, c in enumerate(self.pos_classes)}
 
-        # create momentum models
-        # self.visual_encoder_m = VisionTransformer(
-        #     img_size=config['image_res'], patch_size=16, embed_dim=768, depth=12, num_heads=12, 
-        #     mlp_ratio=4, qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6)) 
-        # self.vision_proj_m = nn.Linear(vision_width, embed_dim)
-        # self.text_encoder_m = BertForMaskedLM.from_pretrained(text_encoder, config=bert_config)       
-        # self.text_proj_m = nn.Linear(text_width, embed_dim)    
-        
-        # self.model_pairs = [[self.visual_encoder,self.visual_encoder_m],
-        #                     [self.vision_proj,self.vision_proj_m],
-        #                     [self.text_encoder,self.text_encoder_m],
-        #                     [self.text_proj,self.text_proj_m],
-        #                    ]
-        
-        # self.copy_params()
-
         # create the queue
         self.register_buffer("image_queue", torch.randn(embed_dim, self.queue_size))
         self.register_buffer("text_queue", torch.randn(embed_dim, self.queue_size))
@@ -118,7 +102,7 @@ class ALBEF(nn.Module):
 
         loss_ita = (loss_i2t+loss_t2i)/2
 
-        # self._dequeue_and_enqueue(image_feat, text_feat)
+        self._dequeue_and_enqueue(image_feat, text_feat)
 
         ###=================================###
         # forward the positve image-text pair
