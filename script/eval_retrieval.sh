@@ -1,2 +1,1 @@
-torchrun --nproc_per_node=2 Pretrain.py --config ./configs/Pretrain.yaml --output_dir output/Pretrain --pos NOUN --checkpoint ./pretrain-weight/ALBEF_4M.pth
-
+torchrun --nproc_per_node=1 Retrieval.py --config ./configs/Retrieval_coco.yaml --output_dir output/Retrieval_coco --checkpoint ./pretrain_weight/MSCOCO/checkpoint_best_NOUN.pth
