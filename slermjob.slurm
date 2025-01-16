@@ -13,6 +13,6 @@
 source ../pytorch/bin/activate
 
 # Run your GPU job commands here
-./pretrain_script.sh
+./script/pretrain_script.sh
 
 deactivate
