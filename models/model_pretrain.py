@@ -65,7 +65,7 @@ class ALBEF(nn.Module):
         # create the queue
         self.register_buffer("image_queue", torch.randn(embed_dim, self.queue_size))
         self.register_buffer("text_queue", torch.randn(embed_dim, self.queue_size))
-        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))  
+        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
                              
         self.image_queue = nn.functional.normalize(self.image_queue, dim=0)
         self.text_queue = nn.functional.normalize(self.text_queue, dim=0)
@@ -85,18 +85,15 @@ class ALBEF(nn.Module):
         text_feat = F.normalize(self.text_proj(text_embeds[:,0,:]),dim=-1)                 
 
         # Image text contrastive learning 
-        image_feat_all = torch.cat([image_feat.t(),self.image_queue.clone().detach()],dim=1)                                         
+        image_feat_all = torch.cat([image_feat.t(),self.image_queue.clone().detach()],dim=1)
         text_feat_all = torch.cat([text_feat.t(),self.text_queue.clone().detach()],dim=1)
 
         sim_i2t = image_feat @ text_feat_all / self.temp
         sim_t2i = text_feat @ image_feat_all / self.temp
-
+        
         sim_targets = torch.zeros(sim_i2t.size()).to(image.device)
         sim_targets.fill_diagonal_(1)
-
-        sim_i2t = image_feat @ text_feat_all / self.temp 
-        sim_t2i = text_feat @ image_feat_all / self.temp 
-                             
+                     
         loss_i2t = -torch.sum(F.log_softmax(sim_i2t, dim=1)*sim_targets,dim=1).mean()
         loss_t2i = -torch.sum(F.log_softmax(sim_t2i, dim=1)*sim_targets,dim=1).mean()
 
@@ -114,13 +111,16 @@ class ALBEF(nn.Module):
                                         mode = 'fusion',
                                        )            
         with torch.no_grad():
-            bs = image.size(0)          
-            weights_i2t = F.softmax(sim_i2t[:,:bs],dim=1)
-            weights_t2i = F.softmax(sim_t2i[:,:bs],dim=1)
-   
+            bs = image.size(0)
+            weights_i2t = sim_i2t[:,:bs]
+            weights_t2i = sim_t2i[:,:bs]
+            
             weights_i2t.fill_diagonal_(0)
             weights_t2i.fill_diagonal_(0)
-
+            
+            weights_i2t = F.softmax(weights_i2t,dim=1)
+            weights_t2i = F.softmax(weights_t2i,dim=1)
+   
         # select a negative image for each text
         image_embeds_neg = []    
         for b in range(bs):
