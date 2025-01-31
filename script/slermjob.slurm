@@ -10,9 +10,9 @@
 #SBATCH --time=24:00:00               # Maximum runtime (HH:MM:SS)
 
 # Load any necessary modules
-source ../pytorch/bin/activate
+source ../../pytorch/bin/activate
 
 # Run your GPU job commands here
-./script/pretrain_script.sh
+./pretrain_script.sh
 
 deactivate
