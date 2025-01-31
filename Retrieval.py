@@ -1,6 +1,6 @@
 import argparse
 import os
-import ruamel_yaml as yaml
+from ruamel.yaml import YAML
 import numpy as np
 import random
 import time
@@ -370,7 +370,9 @@ if __name__ == '__main__':
     parser.add_argument('--distributed', default=True, type=bool)
     args = parser.parse_args()
 
-    config = yaml.load(open(args.config, 'r'), Loader=yaml.Loader)
+    yaml = YAML(typ='rt')
+    with open(args.config, 'r') as file:
+        config = yaml.load(file)
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
         

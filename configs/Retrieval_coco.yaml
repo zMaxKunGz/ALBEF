@@ -1,4 +1,4 @@
-train_file:  ['/home/pasitt/Dataset/CV/mscoco/2017/annotations/captions_train2017.json']
+train_file:  ['/home/pasitt/work/ALBEF/data/train_mscoco.json']
 val_file: '/home/pasitt/Dataset/CV/mscoco/2017/annotations/captions_val2017.json'                
 test_file: '/home/pasitt/Dataset/CV/mscoco/2017/annotations/image_info_test2017.json'
 image_root: '/home/pasitt/Dataset/CV/mscoco/2017/'
