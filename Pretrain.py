@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 
-from models.model_pretrain import ALBEF
+from models.model_pretrain_origin import ALBEF
 from models.vit import interpolate_pos_embed
 from models.tokenization_bert import BertTokenizer
 
@@ -65,7 +65,8 @@ def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device,
         else:
             alpha = config['alpha']*min(1,i/len(data_loader)) 
         
-        loss_mlm, loss_ita, loss_itm = model(image, text_input, alpha = alpha, masking_pos=masking_pos)  
+        # loss_mlm, loss_ita, loss_itm = model(image, text_input, alpha = alpha, masking_pos=masking_pos)
+        loss_mlm, loss_ita, loss_itm = model(image, text_input, alpha = alpha)  
             
         loss = loss_mlm + loss_ita + loss_itm    
         
