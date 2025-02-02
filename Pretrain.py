@@ -65,8 +65,8 @@ def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device,
         else:
             alpha = config['alpha']*min(1,i/len(data_loader)) 
         
-        # loss_mlm, loss_ita, loss_itm = model(image, text_input, alpha = alpha, masking_pos=masking_pos)
-        loss_mlm, loss_ita, loss_itm = model(image, text_input, alpha = alpha)  
+        loss_mlm, loss_ita, loss_itm = model(image, text_input, alpha = alpha, masking_pos=masking_pos)
+        # loss_mlm, loss_ita, loss_itm = model(image, text_input, alpha = alpha)  
             
         loss = loss_mlm + loss_ita + loss_itm    
         
