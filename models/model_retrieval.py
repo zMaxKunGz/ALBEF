@@ -60,9 +60,12 @@ class ALBEF(nn.Module):
         pos_idx = torch.eq(idx, idx_all).float()       
         sim_targets = pos_idx / pos_idx.sum(1,keepdim=True)     
 
-        image_feat_all = torch.cat([image_feat.t(),self.image_queue.clone().detach()],dim=1)                                         
-        text_feat_all = torch.cat([text_feat.t(),self.text_queue.clone().detach()],dim=1)
+        # image_feat_all = torch.cat([image_feat.t(),self.image_queue.clone().detach()],dim=1)
+        # text_feat_all = torch.cat([text_feat.t(),self.text_queue.clone().detach()],dim=1)
 
+        image_feat_all = image_feat.t()
+        text_feat_all = text_feat.t()
+        
         sim_i2t = image_feat @ text_feat_all / self.temp 
         sim_t2i = text_feat @ image_feat_all / self.temp           
 
@@ -71,7 +74,7 @@ class ALBEF(nn.Module):
 
         loss_ita = (loss_i2t+loss_t2i)/2
 
-        self._dequeue_and_enqueue(image_feat, text_feat, idx)
+        # self._dequeue_and_enqueue(image_feat, text_feat, idx)
 
         ###=================================###
         # forward the positve image-text pair

@@ -85,8 +85,11 @@ class ALBEF(nn.Module):
         text_feat = F.normalize(self.text_proj(text_embeds[:,0,:]),dim=-1)                 
 
         # Image text contrastive learning 
-        image_feat_all = torch.cat([image_feat.t(),self.image_queue.clone().detach()],dim=1)
-        text_feat_all = torch.cat([text_feat.t(),self.text_queue.clone().detach()],dim=1)
+        # image_feat_all = torch.cat([image_feat.t(),self.image_queue.clone().detach()],dim=1)
+        # text_feat_all = torch.cat([text_feat.t(),self.text_queue.clone().detach()],dim=1)
+
+        image_feat_all = image_feat.t()
+        text_feat_all = text_feat.t()
 
         sim_i2t = image_feat @ text_feat_all / self.temp
         sim_t2i = text_feat @ image_feat_all / self.temp
@@ -99,7 +102,7 @@ class ALBEF(nn.Module):
 
         loss_ita = (loss_i2t+loss_t2i)/2
 
-        self._dequeue_and_enqueue(image_feat, text_feat)
+        # self._dequeue_and_enqueue(image_feat, text_feat)
 
         ###=================================###
         # forward the positve image-text pair
