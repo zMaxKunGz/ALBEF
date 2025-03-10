@@ -125,7 +125,7 @@ def main(args, config):
 
     data_loader = create_loader(datasets,samplers,batch_size=[config['batch_size']], num_workers=[4], is_trains=[True], collate_fns=[None])[0]
 
-    tokenizer = BertTokenizer.from_pretrained(args.text_encoder)
+    tokenizer = BertTokenizer.from_pretrained("../bert-tokenizer")
 
     #### Model #### 
     print("Creating model")

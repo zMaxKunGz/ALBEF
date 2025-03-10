@@ -9,6 +9,7 @@ train_file: ['../data/train_mscoco.json',
               '../data/cc3m_training.json',
               '../data/cc3m_validation.json'
             ]
+# train_file: ['../data/train_mscoco_la.json']
 # each train_file (json) contains a python list where each item is {'image': img_path, 'caption': text or list_of_text }               
 bert_config: '../configs/config_bert.json'
 
