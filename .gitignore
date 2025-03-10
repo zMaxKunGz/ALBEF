@@ -142,3 +142,5 @@ notebook/templates/*.html
 output/
 wandb/
 pretrain-weight/
+deit/
+bert-*/
