@@ -62,12 +62,12 @@ class ALBEF(nn.Module):
         self.pos_hash = {c: i for i, c in enumerate(self.pos_classes)}
 
         # create the queue
-        self.register_buffer("image_queue", torch.randn(embed_dim, self.queue_size))
-        self.register_buffer("text_queue", torch.randn(embed_dim, self.queue_size))
-        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
+        # self.register_buffer("image_queue", torch.randn(embed_dim, self.queue_size))
+        # self.register_buffer("text_queue", torch.randn(embed_dim, self.queue_size))
+        # self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
                              
-        self.image_queue = nn.functional.normalize(self.image_queue, dim=0)
-        self.text_queue = nn.functional.normalize(self.text_queue, dim=0)
+        # self.image_queue = nn.functional.normalize(self.image_queue, dim=0)
+        # self.text_queue = nn.functional.normalize(self.text_queue, dim=0)
 
     def forward(self, image, text, alpha=0, masking_pos='all'):
         with torch.no_grad():
