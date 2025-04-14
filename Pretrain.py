@@ -36,6 +36,7 @@ import pdb
 
 def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device, scheduler, config, masking_pos):
     # train
+    print("Training with POS masking: " + masking_pos)
     model.train()  
     
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -212,8 +213,8 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', default='Pretrain/')
     parser.add_argument('--text_encoder', default='bert-base-uncased')
     parser.add_argument('--device', default='cuda')
-    # parser.add_argument('--seed', default=42, type=int)
-    parser.add_argument('--seed', default=2491, type=int)
+    parser.add_argument('--seed', default=42, type=int)
+    # parser.add_argument('--seed', default=2491, type=int)
     parser.add_argument('--world_size', default=1, type=int, help='number of distributed processes')    
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
     parser.add_argument('--distributed', default=True, type=bool)
@@ -225,7 +226,8 @@ if __name__ == '__main__':
         config = yaml.load(file)
     args.output_dir = args.output_dir + '/' + datetime.now().strftime("%d-%m-%Y:%H-%M") + args.pos
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-
+    config['seed'] = args.seed
+    config['pos'] = args.pos
     yaml.dump(config, open(os.path.join(args.output_dir, 'config.yaml'), 'w'))    
     
     main(args, config)
