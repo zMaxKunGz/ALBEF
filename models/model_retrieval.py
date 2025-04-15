@@ -33,17 +33,7 @@ class ALBEF(nn.Module):
         self.queue_size = config['queue_size']
         self.momentum = config['momentum']  
         self.itm_head = nn.Linear(text_width, 2) 
-
-        # create the queue
-        self.register_buffer("image_queue", torch.randn(embed_dim, self.queue_size))
-        self.register_buffer("text_queue", torch.randn(embed_dim, self.queue_size))
-        self.register_buffer("idx_queue", torch.full((1,self.queue_size),-100))
-        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))  
-
-        self.image_queue = nn.functional.normalize(self.image_queue, dim=0)
-        self.text_queue = nn.functional.normalize(self.text_queue, dim=0)
         
-
     def forward(self, image, text, alpha, idx):
         
         image_embeds = self.visual_encoder(image) 
@@ -60,9 +50,6 @@ class ALBEF(nn.Module):
         pos_idx = torch.eq(idx, idx_all).float()       
         sim_targets = pos_idx / pos_idx.sum(1,keepdim=True)     
 
-        # image_feat_all = torch.cat([image_feat.t(),self.image_queue.clone().detach()],dim=1)
-        # text_feat_all = torch.cat([text_feat.t(),self.text_queue.clone().detach()],dim=1)
-
         image_feat_all = image_feat.t()
         text_feat_all = text_feat.t()
         
@@ -73,8 +60,6 @@ class ALBEF(nn.Module):
         loss_t2i = -torch.sum(F.log_softmax(sim_t2i, dim=1)*sim_targets,dim=1).mean()   
 
         loss_ita = (loss_i2t+loss_t2i)/2
-
-        # self._dequeue_and_enqueue(image_feat, text_feat, idx)
 
         ###=================================###
         # forward the positve image-text pair
