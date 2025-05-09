@@ -1,3 +1,3 @@
-torchrun --nproc_per_node=2 ../Retrieval.py --config ../configs/Retrieval_coco.yaml --output_dir ../output/Retrieval_coco --evaluate --checkpoint ../output/Noqueue/05-02-2025:17-38NOUN/checkpoint_best.pth 
+torchrun --nproc_per_node=2 ../Retrieval.py --config ../configs/Retrieval_flickr.yaml --output_dir ../output/Retrieval_flickr --evaluate --checkpoint ../output/Noqueue-2491/15-04-2025:02-17all/checkpoint_best.pth
 
  # --checkpoint ../pretrain-weight/MSCOCO/checkpoint_best.pth
