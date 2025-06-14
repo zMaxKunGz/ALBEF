@@ -11,7 +11,7 @@ class ve_dataset(Dataset):
         self.transform = transform
         self.image_root = image_root
         self.max_words = max_words
-        self.labels = {'entailment':2,'neutral':1,'contradiction':0}
+        self.labels = {'positive':1,'negative':0}
         
     def __len__(self):
         return len(self.ann)
@@ -21,7 +21,7 @@ class ve_dataset(Dataset):
         
         ann = self.ann[index]
         
-        image_path = os.path.join(self.image_root,'%s.jpg'%ann['image'])        
+        image_path = os.path.join(self.image_root, ann['image'])        
         image = Image.open(image_path).convert('RGB')   
         image = self.transform(image)          
 

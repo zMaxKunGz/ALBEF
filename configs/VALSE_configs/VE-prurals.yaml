@@ -1,6 +1,6 @@
-train_file: '/home/pasitt/Dataset/CV/VALSE/data/plurals_new.json'
-val_file: '/home/pasitt/Dataset/CV/VALSE/data/plurals_new.json'                
-test_file: '/home/pasitt/Dataset/CV/VALSE/data/plurals_new.json'
+train_file: '/home/pasitt/Dataset/CV/VALSE/data/data_albef/plurals_new.json'
+val_file: '/home/pasitt/Dataset/CV/VALSE/data/data_albef/plurals_new.json'                
+test_file: '/home/pasitt/Dataset/CV/VALSE/data/data_albef/plurals_new.json'
 
 image_root: '/home/pasitt/Dataset/CV/VALSE/cocoval'
 

@@ -1,0 +1,25 @@
+train_file: '/home/pasitt/Dataset/CV/VALSE/data/data_albef/coreference_standard_new.json'
+val_file: '/home/pasitt/Dataset/CV/VALSE/data/data_albef/coreference_standard_new.json'                
+test_file: '/home/pasitt/Dataset/CV/VALSE/data/data_albef/coreference_standard_new.json'
+
+image_root: '/home/pasitt/Dataset/CV/VALSE/VisDial_v1.0'
+
+image_res: 384
+batch_size_train: 32 
+batch_size_test: 64 
+
+alpha: 0.4
+distill: True
+warm_up: False
+
+bert_config: '../configs/config_bert.json'
+
+optimizer: {opt: adamW, lr: 2e-5, weight_decay: 0.02}
+schedular: {sched: cosine, lr: 2e-5, epochs: 1, min_lr: 1e-6, decay_rate: 1, warmup_lr: 1e-5, warmup_epochs: 1, cooldown_epochs: 0}
+
+
+
+
+
+
+

@@ -19,7 +19,7 @@ class ALBEF(nn.Module):
 
         self.visual_encoder = VisionTransformer(
             img_size=config['image_res'], patch_size=16, embed_dim=768, depth=12, num_heads=12, 
-            mlp_ratio=4, qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6))    
+            mlp_ratio=4, qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6))
 
         bert_config = BertConfig.from_json_file(config['bert_config'])
 
@@ -28,26 +28,9 @@ class ALBEF(nn.Module):
         self.cls_head = nn.Sequential(
                   nn.Linear(self.text_encoder.config.hidden_size, self.text_encoder.config.hidden_size),
                   nn.ReLU(),
-                  nn.Linear(self.text_encoder.config.hidden_size, 3)
+                  nn.Linear(self.text_encoder.config.hidden_size, 2)
                 )
-
-        if self.distill:
-            self.visual_encoder_m = VisionTransformer(
-                img_size=config['image_res'], patch_size=16, embed_dim=768, depth=12, num_heads=12, 
-                mlp_ratio=4, qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6))               
-            self.text_encoder_m = BertModel.from_pretrained(text_encoder, config=bert_config, add_pooling_layer=False)      
-            self.cls_head_m = nn.Sequential(
-                      nn.Linear(self.text_encoder.config.hidden_size, self.text_encoder.config.hidden_size),
-                      nn.ReLU(),
-                      nn.Linear(self.text_encoder.config.hidden_size, 3)
-                    )
-
-            self.model_pairs = [[self.visual_encoder,self.visual_encoder_m],
-                                [self.text_encoder,self.text_encoder_m],
-                                [self.cls_head,self.cls_head_m],
-                               ]
-            self.copy_params()        
-            self.momentum = 0.995
+        self.momentum = 0.995
             
             
     def forward(self, image, text, targets, alpha=0, train=True):

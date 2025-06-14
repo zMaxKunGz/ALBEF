@@ -1,6 +1,6 @@
 import argparse
 import os
-import ruamel_yaml as yaml
+from ruamel.yaml import YAML
 import numpy as np
 import random
 import time
@@ -25,6 +25,7 @@ import utils
 from dataset import create_dataset, create_sampler, create_loader
 from scheduler import create_scheduler
 from optim import create_optimizer
+from datetime import datetime, timedelta
 
 
 def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device, scheduler, config):
@@ -77,24 +78,26 @@ def evaluate(model, data_loader, tokenizer, device, config):
     metric_logger = utils.MetricLogger(delimiter="  ")
 
     header = 'Evaluation:'
-    print_freq = 50
+    print_freq = 10
 
     for images, text, targets in metric_logger.log_every(data_loader, print_freq, header):
-        
+        correct = 0
+        count = 0
         images, targets = images.to(device,non_blocking=True), targets.to(device,non_blocking=True)   
-        
         text_inputs = tokenizer(text, padding='longest', return_tensors="pt").to(device)  
+        prediction = model(images, text_inputs, targets, train=False)  
+        for idx in range(0, images.size(0), 2):
+            positive_p = prediction[idx][1]
+            negative_p = prediction[idx+1][1]
+            if positive_p > negative_p:
+                correct += 1
+            count += 1
+        accuracy = correct * 100 / count
+        metric_logger.meters['acc'].update(accuracy, n=1)
 
-        prediction = model(images, text_inputs, targets=targets, train=False)  
- 
-        _, pred_class = prediction.max(1)
-        accuracy = (targets==pred_class).sum() / targets.size(0)
-
-        metric_logger.meters['acc'].update(accuracy.item(), n=images.size(0))
-                
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
-    print("Averaged stats:", metric_logger.global_avg())   
+    print("Averaged stats:", metric_logger.global_avg()) 
     return {k: "{:.4f}".format(meter.global_avg) for k, meter in metric_logger.meters.items()}
     
     
@@ -112,7 +115,7 @@ def main(args, config):
 
     #### Dataset #### 
     print("Creating dataset")
-    datasets = create_dataset('ve', config) 
+    datasets = create_dataset('ve', config)
     
     if args.distributed:
         num_tasks = utils.get_world_size()
@@ -181,17 +184,19 @@ def main(args, config):
                 train_loader.sampler.set_epoch(epoch)
             train_stats = train(model, train_loader, optimizer, tokenizer, epoch, warmup_steps, device, lr_scheduler, config)  
             
-        val_stats = evaluate(model, val_loader, tokenizer, device, config)
+        # val_stats = evaluate(model, val_loader, tokenizer, device, config)
         test_stats = evaluate(model, test_loader, tokenizer, device, config)
 
         if utils.is_main_process():  
             if args.evaluate:
-                log_stats = {**{f'val_{k}': v for k, v in val_stats.items()},
+                log_stats = {
                              **{f'test_{k}': v for k, v in test_stats.items()},
                              'epoch': epoch,
                             }
-
-                with open(os.path.join(args.output_dir, "log.txt"),"a") as f:
+                print(args.checkpoint)
+                # filename = f"log-{args.checkpoint.split('/')[-2][16:]}-{args.checkpoint.split('/')[2].split('-')[-1]}-{args.type}.txt"
+                filename = f"log-original-{args.checkpoint.split('/')[-2]}"
+                with open(os.path.join(args.output_dir, filename),"w") as f:
                     f.write(json.dumps(log_stats) + "\n")                
             else:    
                 log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
@@ -221,7 +226,7 @@ def main(args, config):
         dist.barrier()   
                 
     total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    total_time_str = str(timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str)) 
     
     if utils.is_main_process():   
@@ -238,12 +243,15 @@ if __name__ == '__main__':
     parser.add_argument('--evaluate', action='store_true')    
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--seed', default=42, type=int)
+    parser.add_argument('--type', default='prurals')
     parser.add_argument('--world_size', default=1, type=int, help='number of distributed processes')    
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
     parser.add_argument('--distributed', default=True, type=bool)
     args = parser.parse_args()
-
-    config = yaml.load(open(args.config, 'r'), Loader=yaml.Loader)
+    yaml = YAML(typ='rt')
+    with open(args.config, 'r') as file:
+        config = yaml.load(file)
+    args.output_dir = args.output_dir
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
         

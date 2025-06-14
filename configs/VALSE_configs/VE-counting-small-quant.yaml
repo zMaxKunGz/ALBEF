@@ -1,8 +1,8 @@
-train_file: '/home/pasitt/Dataset/CV/VALSE/data/plurals_new.json'
-val_file: '/home/pasitt/Dataset/CV/VALSE/data/plurals_new.json'                
-test_file: '/home/pasitt/Dataset/CV/VALSE/data/plurals_new.json'
+train_file: '/home/pasitt/Dataset/CV/VALSE/data/data_albef/counting_small_quant_new.json'
+val_file: '/home/pasitt/Dataset/CV/VALSE/data/data_albef/counting_small_quant_new.json'                
+test_file: '/home/pasitt/Dataset/CV/VALSE/data/data_albef/counting_small_quant_new.json'
 
-image_root: '/home/pasitt/Dataset/CV/VALSE/cocoval'
+image_root: '/home/pasitt/Dataset/CV/VALSE/v7w'
 
 image_res: 384
 batch_size_train: 32 
