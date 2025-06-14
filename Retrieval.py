@@ -15,7 +15,7 @@ import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 from torch.utils.data import DataLoader
 
-from models.model_retrieval_origin import ALBEF
+from models.model_retrieval import ALBEF
 from models.vit import interpolate_pos_embed
 from models.tokenization_bert import BertTokenizer
 
@@ -300,27 +300,30 @@ def main(args, config):
                 train_loader.sampler.set_epoch(epoch)
             train_stats = train(model, train_loader, optimizer, tokenizer, epoch, warmup_steps, device, lr_scheduler, config)  
             
-        score_val_i2t, score_val_t2i, = evaluation(model_without_ddp, val_loader, tokenizer, device, config)
-        # score_test_i2t, score_test_t2i = evaluation(model_without_ddp, test_loader, tokenizer, device, config)
+        # score_val_i2t, score_val_t2i, = evaluation(model_without_ddp, val_loader, tokenizer, device, config)
+        score_test_i2t, score_test_t2i = evaluation(model_without_ddp, test_loader, tokenizer, device, config)
     
         if utils.is_main_process():  
       
-            val_result = itm_eval(score_val_i2t, score_val_t2i, val_loader.dataset.txt2img, val_loader.dataset.img2txt)  
-            print(val_result)
-            # test_result = itm_eval(score_test_i2t, score_test_t2i, test_loader.dataset.txt2img, test_loader.dataset.img2txt)    
-            # print(test_result)
+            # val_result = itm_eval(score_val_i2t, score_val_t2i, val_loader.dataset.txt2img, val_loader.dataset.img2txt)  
+            # print(val_result)
+            test_result = itm_eval(score_test_i2t, score_test_t2i, test_loader.dataset.txt2img, test_loader.dataset.img2txt)    
+            print(test_result)
             
             if args.evaluate:                
-                log_stats = {**{f'val_{k}': v for k, v in val_result.items()},
-                             # **{f'test_{k}': v for k, v in test_result.items()},                  
+                log_stats = {# **{f'val_{k}': v for k, v in val_result.items()},
+                             **{f'test_{k}': v for k, v in test_result.items()},                  
                              'epoch': epoch,
                             }
-                with open(os.path.join(args.output_dir, "log.txt"),"a") as f:
-                    f.write(json.dumps(log_stats) + "\n")     
+                log_file_name = f"log-{args.checkpoint.split('/')[-2][16:]}-{args.checkpoint.split('/')[2].split('-')[-1]}.txt"
+                if args.checkpoint.split('/')[2] == 'Masking100percent':
+                    log_file_name = f"log-{args.checkpoint.split('/')[-2][16:]}-100Percent.txt"
+                with open(os.path.join(args.output_dir, log_file_name),"w") as f:
+                    f.write(json.dumps(log_stats) + "\n")
             else:
                 log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                              **{f'val_{k}': v for k, v in val_result.items()},
-                             # **{f'test_{k}': v for k, v in test_result.items()},                  
+                             **{f'test_{k}': v for k, v in test_result.items()},                  
                              'epoch': epoch,
                             }
                 with open(os.path.join(args.output_dir, "log.txt"),"a") as f:

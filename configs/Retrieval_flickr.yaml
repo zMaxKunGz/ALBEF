@@ -1,7 +1,7 @@
 train_file:  ['/home/pasitt/work/ALBEF/data/flickr30k_train_new.json']
 val_file: '/home/pasitt/work/ALBEF/data/flickr30k_val_new.json'                
 test_file: '/home/pasitt/work/ALBEF/data/flickr30k_test_new.json'
-image_root: '/home/pasitt/Dataset/CV/flickr/Images' #flickr30k-images/
+image_root: '/home/pasitt/Dataset/CV/flickr/flickr30k-images' #flickr30k-images/
 
 bert_config: '../configs/config_bert.json'
 
