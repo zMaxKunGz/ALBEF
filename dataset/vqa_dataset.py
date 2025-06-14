@@ -63,8 +63,8 @@ class vqa_dataset(Dataset):
 
             elif ann['dataset']=='vg':
                 answers = [ann['answer']]
-                weights = [0.5]  
+                weights = [0.8]
 
-            answers = [answer+self.eos for answer in answers]
+            # answers = [answer+self.eos for answer in answers]
                 
             return image, question, answers, weights

@@ -11,7 +11,7 @@ train_file: ['../data/train_mscoco.json',
             ]
 # train_file: ['../data/train_mscoco_la.json']
 # each train_file (json) contains a python list where each item is {'image': img_path, 'caption': text or list_of_text }               
-bert_config: '../configs/config_bert.json'
+bert_config: './configs/config_bert.json'
 
 image_res: 256
 vision_width: 768

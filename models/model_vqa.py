@@ -25,7 +25,7 @@ class ALBEF(nn.Module):
             mlp_ratio=4, qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6))    
 
         config_encoder = BertConfig.from_json_file(config['bert_config'])   
-        self.text_encoder = BertModel.from_pretrained(text_encoder, config=config_encoder, add_pooling_layer=False)  
+        self.text_encoder = BertModel.from_pretrained('./bert-model', config=bert_config)  
             
         config_decoder = BertConfig.from_json_file(config['bert_config'])
         config_decoder.fusion_layer = 0
@@ -48,7 +48,7 @@ class ALBEF(nn.Module):
 
     def forward(self, image, quesiton, answer=None, alpha=0, k=None, weights=None, train=True):
         
-        image_embeds = self.visual_encoder(image) 
+        image_embeds = self.visual_encoder(image)
         image_atts = torch.ones(image_embeds.size()[:-1],dtype=torch.long).to(image.device)
         
         if train:               
@@ -56,7 +56,7 @@ class ALBEF(nn.Module):
             k: number of answers for each question
             weights: weight for each answer
             '''          
-            answer_targets = answer.input_ids.masked_fill(answer.input_ids == self.tokenizer.pad_token_id, -100)      
+            answer_targets = answer.input_ids.masked_fill(answer.input_ids == self.tokenizer.pad_token_id, -100)
 
             question_output = self.text_encoder(quesiton.input_ids, 
                                                 attention_mask = quesiton.attention_mask, 
@@ -106,14 +106,14 @@ class ALBEF(nn.Module):
                                                  )   
             else:
                 answer_output = self.text_decoder(answer.input_ids, 
-                                                  attention_mask = answer.attention_mask, 
+                                                  attention_mask = answer.attention_mask,
                                                   encoder_hidden_states = question_states,
-                                                  encoder_attention_mask = question_atts,                  
+                                                  encoder_attention_mask = question_atts,
                                                   labels = answer_targets,
-                                                  return_dict = True,   
+                                                  return_dict = True,
                                                   reduction = 'none',
-                                                 )                      
-            loss = weights * answer_output.loss         
+                                                 )
+            loss = weights * answer_output.loss
             loss = loss.sum()/image.size(0)
 
             return loss
