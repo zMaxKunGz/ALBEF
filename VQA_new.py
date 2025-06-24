@@ -75,18 +75,17 @@ def evaluation(model, data_loader, tokenizer, device, config) :
     result = []
     
     answer_list = json.load(open(config['answer_list'],'r'))
-    answer_input = tokenizer(answer_list, padding='longest', return_tensors='pt').to(device)    
         
     for n, (image, question, question_id) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):        
         image = image.to(device,non_blocking=True)             
         question_input = tokenizer(question, padding='longest', return_tensors="pt").to(device)        
 
-        topk_ids, topk_probs = model(image, question_input, answer_input, train=False, k=config['k_test'])      
+        topk_ids, topk_probs = model(image, question_input, train=False, k=config['k_test'])      
         
         for ques_id, topk_id, topk_prob in zip(question_id, topk_ids, topk_probs):
             ques_id = int(ques_id.item())          
             _, pred = topk_prob.max(dim=0)
-            result.append({"question_id":ques_id, "answer":answer_list[topk_id[pred]]})   
+            result.append({"question_id":ques_id, "answer":answer_list[topk_id[pred]]})
 
     return result
 
@@ -94,8 +93,6 @@ def evaluation(model, data_loader, tokenizer, device, config) :
 def main(args, config):
     utils.init_distributed_mode(args)
     if utils.get_rank() == 0 and not args.evaluate:
-        if args.checkpoint:
-            config['checkpoint'] = args.checkpoint
         utils.setup_wandb(rank=utils.get_rank(), 
                           run_name='vqa' + args.checkpoint.split('/')[-2] + datetime.now().strftime("%d-%m:%H-%M"),
                           config=config)
@@ -245,8 +242,11 @@ if __name__ == '__main__':
     yaml = YAML(typ='rt')
     with open(args.config, 'r') as file:
         config = yaml.load(file)
-    args.output_dir = args.output_dir + '/' + args.checkpoint.split('/')[-2][16:] + args.checkpoint.split('/')[2].split('-')[-1] + datetime.now().strftime("%d-%m:%H-%M")
+    args.output_dir = args.output_dir + '/' + args.checkpoint.split('/')[-2][16:] + '-' + args.checkpoint.split('/')[2].split('-')[-1] + '-' + datetime.now().strftime("%d-%m:%H-%M")
     args.result_dir = os.path.join(args.output_dir, 'result')
+
+    if args.checkpoint:
+        config['checkpoint'] = args.checkpoint
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     Path(args.result_dir).mkdir(parents=True, exist_ok=True)
