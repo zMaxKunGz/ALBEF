@@ -4,6 +4,7 @@ from ruamel.yaml import YAML
 import numpy as np
 import random
 import time
+import datetime
 import json
 from pathlib import Path
 
@@ -13,11 +14,11 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-import wandb
-from models.model_vqa_new import ALBEF
+
+from models.model_vqa_ALBEF import ALBEF
 from models.vit import interpolate_pos_embed
 from models.tokenization_bert import BertTokenizer
-from datetime import datetime, timedelta
+
 import utils
 from dataset.utils import save_result
 from dataset import create_dataset, create_sampler, create_loader, vqa_collate_fn
@@ -42,11 +43,15 @@ def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device,
     for i,(image, question, answer, weights, n) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
         image, weights = image.to(device,non_blocking=True), weights.to(device,non_blocking=True)      
         question_input = tokenizer(question, padding='longest', truncation=True, max_length=25, return_tensors="pt").to(device) 
-        # answer_input = tokenizer(answer, padding='longest', return_tensors="pt").to(device) 
+        answer_input = tokenizer(answer, padding='longest', return_tensors="pt").to(device) 
+        
+        if epoch>0 or not config['warm_up']:
+            alpha = config['alpha']
+        else:
+            alpha = config['alpha']*min(1,i/len(data_loader))
 
-        loss = model(image, question_input, answer, train=True, k=n, weights=weights)        
-        if utils.is_main_process():
-            wandb.log({'loss': loss.item()})
+        loss = model(image, question_input, answer_input, train=True, alpha=alpha, k=n, weights=weights)        
+        
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()    
@@ -74,28 +79,27 @@ def evaluation(model, data_loader, tokenizer, device, config) :
     
     result = []
     
-    answer_list = json.load(open(config['answer_list'],'r'))
+    answer_list = [answer+config['eos'] for answer in data_loader.dataset.answer_list]
+    answer_input = tokenizer(answer_list, padding='longest', return_tensors='pt').to(device)    
         
     for n, (image, question, question_id) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):        
         image = image.to(device,non_blocking=True)             
         question_input = tokenizer(question, padding='longest', return_tensors="pt").to(device)        
 
-        topk_ids, topk_probs = model(image, question_input, train=False, k=config['k_test'])      
+        topk_ids, topk_probs = model(image, question_input, answer_input, train=False, k=config['k_test'])      
         
         for ques_id, topk_id, topk_prob in zip(question_id, topk_ids, topk_probs):
             ques_id = int(ques_id.item())          
             _, pred = topk_prob.max(dim=0)
-            result.append({"question_id":ques_id, "answer":answer_list[topk_id[pred]]})
+            result.append({"question_id":ques_id, "answer":data_loader.dataset.answer_list[topk_id[pred]]})   
 
     return result
 
 
+
+
 def main(args, config):
-    utils.init_distributed_mode(args)
-    if utils.get_rank() == 0 and not args.evaluate:
-        utils.setup_wandb(rank=utils.get_rank(), 
-                          run_name='vqa' + args.checkpoint.split('/')[-2] + datetime.now().strftime("%d-%m:%H-%M"),
-                          config=config)
+    utils.init_distributed_mode(args)    
     
     device = torch.device(args.device)
 
@@ -131,7 +135,7 @@ def main(args, config):
 
     #### Model #### 
     print("Creating model")
-    model = ALBEF(config=config, text_encoder=args.text_encoder,  tokenizer=tokenizer)
+    model = ALBEF(config=config, text_encoder=args.text_encoder, text_decoder=args.text_decoder, tokenizer=tokenizer)
     model = model.to(device)   
     
     arg_opt = utils.AttrDict(config['optimizer'])
@@ -168,7 +172,12 @@ def main(args, config):
                             decoder_layer_num = (layer_num-6)
                             encoder_keys[4] = str(decoder_layer_num)
                             encoder_key = '.'.join(encoder_keys)     
-                    del state_dict[key]
+                    else:
+                        encoder_key = key
+                    decoder_key = encoder_key.replace('text_encoder','text_decoder')  
+                    state_dict[decoder_key] = state_dict[key]     
+
+                    del state_dict[key]                
                 
         msg = model.load_state_dict(state_dict,strict=False)  
         print('load checkpoint from %s'%args.checkpoint)
@@ -219,7 +228,7 @@ def main(args, config):
     result_file = save_result(vqa_result, args.result_dir, 'vqa_result_epoch%d'%epoch)
                      
     total_time = time.time() - start_time
-    total_time_str = str(timedelta(seconds=int(total_time)))
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str)) 
     
             
@@ -242,11 +251,8 @@ if __name__ == '__main__':
     yaml = YAML(typ='rt')
     with open(args.config, 'r') as file:
         config = yaml.load(file)
-    args.output_dir = args.output_dir + '/' + args.checkpoint.split('/')[-2][16:] + '-' + args.checkpoint.split('/')[2].split('-')[-1] + '-' + datetime.now().strftime("%d-%m:%H-%M")
+    args.output_dir = args.output_dir + '/' + args.checkpoint.split('/')[-2][16:] + args.checkpoint.split('/')[2].split('-')[-1]
     args.result_dir = os.path.join(args.output_dir, 'result')
-
-    if args.checkpoint:
-        config['checkpoint'] = args.checkpoint
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     Path(args.result_dir).mkdir(parents=True, exist_ok=True)

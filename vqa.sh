@@ -27,11 +27,11 @@ checkpoints=(
     # "../output/Noqueue-42/16-04-2025:18-58PRON/checkpoint_09.pth"
     # "../output/Noqueue-42/16-04-2025:19-01PROPN/checkpoint_09.pth"
     # "../output/Noqueue-42/16-04-2025:19-07PUNCT/checkpoint_09.pth"
-    # "../output/Noqueue-42/16-04-2025:19-07VERB/checkpoint_09.pth"
+    "./output/Noqueue-42/16-04-2025:19-07VERB/checkpoint_09.pth"
     # "../output/Masking-100/03-05-2025:21-57ADJ/checkpoint_09.pth"
     # "../output/Masking-100/03-05-2025:22-06ADV/checkpoint_09.pth"
     # "./output/Masking-100/03-05-2025:22-06NOUN/checkpoint_09.pth"
-    "./output/VQA/NOUN10012-06:16-29/checkpoint_04.pth"
+    # "./output/VQA/NOUN10012-06:16-29/checkpoint_07.pth"
     # "../output/Masking-100/05-05-2025:07-40PROPN/checkpoint_09.pth"
     # "../output/Masking-100/14-05-2025:21-15VERB/checkpoint_09.pth"
 )
@@ -41,8 +41,8 @@ do
     torchrun --nproc_per_node=2 ./VQA_new.py \
             --config "./configs/VQA.yaml" \
             --output_dir "./output/VQA" \
-            --checkpoint "$checkpoint" \
-            --evaluate
+            --checkpoint "$checkpoint"
+            # --evaluate
 done
 
 
