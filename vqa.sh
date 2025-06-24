@@ -38,7 +38,7 @@ checkpoints=(
 
 for checkpoint in "${checkpoints[@]}"
 do
-    torchrun --nproc_per_node=2 ./VQA_new.py \
+    torchrun --nproc_per_node=2 ./VQA.py \
             --config "./configs/VQA.yaml" \
             --output_dir "./output/VQA" \
             --checkpoint "$checkpoint"

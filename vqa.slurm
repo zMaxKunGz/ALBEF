@@ -5,7 +5,7 @@
 #SBATCH --gpus=4
 #SBATCH -t 48:00:00 
 #SBATCH -A lt200226
-#SBATCH -J albef_mscoco
+#SBATCH -J vqa-training
 #SBATCH --array=0-9
 
 module load Mamba/23.11.0-0
@@ -45,14 +45,11 @@ checkpoints=(
     "./output/Masking-100/14-05-2025:21-15VERB/checkpoint_09.pth"
 )
 
-# Select the POS based on the array index.
 checkpoint=${checkpoints[$SLURM_ARRAY_TASK_ID]}
 echo "Running with checkpoint: ${checkpoint}"
 
-# Run the training script with the selected POS.
-torchrun --nnodes=1 --nproc_per_node=4 ../Pretrain.py \
-  --config ../configs/Pretrain.yaml \
-  --output_dir ../output/Noqueue-42 \
-  --pos ${selected_pos}
-
+torchrun --nnodes=1 --nproc_per_node=4 ./VQA.py \
+    --config "./configs/VQA.yaml" \
+    --output_dir "./output/VQA" \
+    --checkpoint "$checkpoint"
 conda deactivate

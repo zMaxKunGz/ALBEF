@@ -5,7 +5,7 @@ train_file: ['./data/VQA/vqa_train.json',
 test_file: ['./data/VQA/vqa_test.json']
 answer_list: './data/VQA/answer_list.json'
 
-vqa_root: '/home/pasitt/Dataset/CV/mscoco/2014' #train2014/
+vqa_root: '../mscoco/' #train2014/
 vg_root: '/home/pasitt/Dataset/CV/visual_genome/'  #image/
 
 image_res: 384
@@ -22,7 +22,7 @@ eos: '[SEP]'
 bert_config: './configs/config_bert.json'
 
 optimizer: {opt: adamW, lr: 2e-5, weight_decay: 0.02}
-schedular: {sched: cosine, lr: 2e-5, epochs: 4, min_lr: 1e-6, decay_rate: 1, warmup_lr: 1e-5, warmup_epochs: 1, cooldown_epochs: 0}
+schedular: {sched: cosine, lr: 2e-5, epochs: 8, min_lr: 1e-6, decay_rate: 1, warmup_lr: 1e-5, warmup_epochs: 1, cooldown_epochs: 0}
 
 
 
