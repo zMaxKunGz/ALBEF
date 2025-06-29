@@ -25,7 +25,7 @@ from dataset import create_dataset, create_sampler, create_loader, vqa_collate_f
 
 from scheduler import create_scheduler
 from optim import create_optimizer
-
+from datetime import datetime, timedelta
 
 def train(model, data_loader, optimizer, tokenizer, epoch, warmup_steps, device, scheduler, config):
     # train
@@ -117,7 +117,7 @@ def main(args, config):
     
     #### Dataset #### 
     print("Creating vqa datasets")
-    datasets = create_dataset('vqa', config)   
+    datasets = create_dataset('vqa_albef', config)   
     
     if args.distributed:
         num_tasks = utils.get_world_size()
@@ -144,8 +144,8 @@ def main(args, config):
     lr_scheduler, _ = create_scheduler(arg_sche, optimizer)          
         
     if args.checkpoint:    
-        checkpoint = torch.load(args.checkpoint, map_location='cpu') 
-        state_dict = checkpoint['model']
+        state_dict = torch.load(args.checkpoint, map_location='cpu') 
+        # state_dict = checkpoint['model']
         
         # reshape positional embedding to accomodate for image resolution change
         pos_embed_reshaped = interpolate_pos_embed(state_dict['visual_encoder.pos_embed'],model.visual_encoder)         
@@ -228,7 +228,7 @@ def main(args, config):
     result_file = save_result(vqa_result, args.result_dir, 'vqa_result_epoch%d'%epoch)
                      
     total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    total_time_str = str(timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str)) 
     
             
@@ -251,12 +251,12 @@ if __name__ == '__main__':
     yaml = YAML(typ='rt')
     with open(args.config, 'r') as file:
         config = yaml.load(file)
-    args.output_dir = args.output_dir + '/' + args.checkpoint.split('/')[-2][16:] + args.checkpoint.split('/')[2].split('-')[-1]
+    args.output_dir = args.output_dir + '/' + 'vqa_albef' + '-' + datetime.now().strftime("%d-%m:%H-%M")
     args.result_dir = os.path.join(args.output_dir, 'result')
 
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     Path(args.result_dir).mkdir(parents=True, exist_ok=True)
         
-    yaml.dump(config, open(os.path.join(args.output_dir, 'config.yaml'), 'w'))    
+    yaml.dump(config, open(os.path.join(args.output_dir, 'config.yaml'), 'w'))
     
     main(args, config)

@@ -47,13 +47,13 @@ class ALBEF(nn.Module):
         image_embeds = self.visual_encoder(image) 
         image_atts = torch.ones(image_embeds.size()[:-1],dtype=torch.long).to(image.device)
 
-        with torch.no_grad():
-            output = self.text_encoder(question.input_ids, 
-                                            attention_mask = question.attention_mask,
-                                            encoder_hidden_states = image_embeds,
-                                            encoder_attention_mask = image_atts,      
-                                            return_dict = True,
-                                           )
+        # with torch.no_grad():
+        output = self.text_encoder(question.input_ids, 
+                                        attention_mask = question.attention_mask,
+                                        encoder_hidden_states = image_embeds,
+                                        encoder_attention_mask = image_atts,      
+                                        return_dict = True,
+                                       )
         
         logits = self.classifier(output.last_hidden_state[:, 0, :])
         

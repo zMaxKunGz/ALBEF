@@ -25,7 +25,7 @@ class ALBEF(nn.Module):
             mlp_ratio=4, qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6))    
 
         config_encoder = BertConfig.from_json_file(config['bert_config'])   
-        self.text_encoder = BertModel.from_pretrained('./bert-model', config=bert_config)  
+        self.text_encoder = BertModel.from_pretrained('./bert-model', config=config_encoder)  
             
         config_decoder = BertConfig.from_json_file(config['bert_config'])
         config_decoder.fusion_layer = 0

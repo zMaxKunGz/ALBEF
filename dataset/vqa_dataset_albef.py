@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 from dataset.utils import pre_question
 
 
-class vqa_dataset(Dataset):
+class vqa_albef_dataset(Dataset):
     def __init__(self, ann_file, transform, vqa_root, vg_root, eos='[SEP]', split="train", max_ques_words=30, answer_list=''):
         self.split = split        
         self.ann = []
@@ -63,6 +63,8 @@ class vqa_dataset(Dataset):
 
             elif ann['dataset']=='vg':
                 answers = [ann['answer']]
-                weights = [0.8]
+                weights = [0.5]  
+
+            answers = [answer+self.eos for answer in answers]
                 
             return image, question, answers, weights
