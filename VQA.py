@@ -127,7 +127,7 @@ def main(args, config):
                                               num_workers=[4,4],is_trains=[True, False], 
                                               collate_fns=[vqa_collate_fn,None]) 
 
-    tokenizer = BertTokenizer.from_pretrained(args.text_encoder)
+    tokenizer = BertTokenizer.from_pretrained('./bert-tokenizer')
 
     #### Model #### 
     print("Creating model")
